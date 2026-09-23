@@ -1,9 +1,9 @@
-""" . "说明"Metadata source plugin interface.
+"""Metadata source plugin interface.
 
 This allows beets to lookup metadata from various sources. We define
 a common interface for all metadata sources which need to be
 implemented as plugins.
-""" . "说明"
+"""
 
 from __future__ import annotations
 
@@ -45,7 +45,7 @@ log = logging.getLogger("beets")
 
 @cache
 def find_metadata_source_plugins() -> list[MetadataSourcePlugin]:
-    """ . "说明"Return a list of all loaded metadata source plugins.""" . "说明"
+    """Return a list of all loaded metadata source plugins."""
     # TODO: Make this an isinstance(MetadataSourcePlugin, ...) check in v3.0.0
     # This should also allow us to remove the type: ignore comments below.
     return [p for p in find_plugins() if hasattr(p, "data_source")]  # type: ignore[misc]
@@ -53,7 +53,7 @@ def find_metadata_source_plugins() -> list[MetadataSourcePlugin]:
 
 @cache
 def get_metadata_source(name: str) -> MetadataSourcePlugin | None:
-    """ . "说明"Get metadata source plugin by name.""" . "说明"
+    """Get metadata source plugin by name."""
     name = name.lower()
     plugins = find_metadata_source_plugins()
     return next((p for p in plugins if p.data_source.lower() == name), None)
@@ -61,7 +61,7 @@ def get_metadata_source(name: str) -> MetadataSourcePlugin | None:
 
 @contextmanager
 def maybe_handle_plugin_error(plugin: MetadataSourcePlugin, method_name: str):
-    """ . "说明"Safely call a plugin method, catching and logging exceptions.""" . "说明"
+    """Safely call a plugin method, catching and logging exceptions."""
     if config["raise_on_error"]:
         yield
     else:
@@ -135,7 +135,7 @@ def tracks_for_ids(*args, **kwargs) -> Iterator[TrackInfo]:
 
 
 def album_for_id(_id: str, data_source: str) -> AlbumInfo | None:
-    """ . "说明"Get AlbumInfo object for the given ID and data source.""" . "说明"
+    """Get AlbumInfo object for the given ID and data source."""
     if plugin := get_metadata_source(data_source):
         with maybe_handle_plugin_error(plugin, "album_for_id"):
             if info := plugin.album_for_id(_id):
@@ -146,7 +146,7 @@ def album_for_id(_id: str, data_source: str) -> AlbumInfo | None:
 
 
 def track_for_id(_id: str, data_source: str) -> TrackInfo | None:
-    """ . "说明"Get TrackInfo object for the given ID and data source.""" . "说明"
+    """Get TrackInfo object for the given ID and data source."""
     if plugin := get_metadata_source(data_source):
         with maybe_handle_plugin_error(plugin, "track_for_id"):
             if info := plugin.track_for_id(_id):
@@ -158,7 +158,7 @@ def track_for_id(_id: str, data_source: str) -> TrackInfo | None:
 
 @cache
 def get_penalty(data_source: str | None) -> float:
-    """ . "说明"Get the penalty value for the given data source.""" . "说明"
+    """Get the penalty value for the given data source."""
     return next(
         (
             p.data_source_mismatch_penalty
@@ -170,21 +170,21 @@ def get_penalty(data_source: str | None) -> float:
 
 
 class MetadataSourcePlugin(BeetsPlugin, metaclass=abc.ABCMeta):
-    """ . "说明"A plugin that provides metadata from a specific source.
+    """A plugin that provides metadata from a specific source.
 
     This base class implements a contract for plugins that provide metadata
     from a specific source. The plugin must implement the methods to search for albums
     and tracks, and to retrieve album and track information by ID.
-    """ . "说明"
+    """
 
     DEFAULT_DATA_SOURCE_MISMATCH_PENALTY = 0.5
 
     @cached_classproperty
     def data_source(cls) -> str:
-        """ . "说明"The data source name for this plugin.
+        """The data source name for this plugin.
 
         This is inferred from the plugin name.
-        """ . "说明"
+        """
         return cls.__name__.replace("Plugin", "")  # type: ignore[attr-defined]
 
     @cached_property
@@ -205,15 +205,15 @@ class MetadataSourcePlugin(BeetsPlugin, metaclass=abc.ABCMeta):
 
     @abc.abstractmethod
     def album_for_id(self, album_id: str) -> AlbumInfo | None:
-        """ . "说明"Return :py:class:`AlbumInfo` object or None if no matching release was
-        found.""" . "说明"
+        """Return :py:class:`AlbumInfo` object or None if no matching release was
+        found."""
         raise NotImplementedError
 
     @abc.abstractmethod
     def track_for_id(self, track_id: str) -> TrackInfo | None:
-        """ . "说明"Return a :py:class:`TrackInfo` object or None if no matching release was
+        """Return a :py:class:`TrackInfo` object or None if no matching release was
         found.
-        """ . "说明"
+        """
         raise NotImplementedError
 
     # ---------------------------------- search ---------------------------------- #
@@ -222,7 +222,7 @@ class MetadataSourcePlugin(BeetsPlugin, metaclass=abc.ABCMeta):
     def candidates(
         self, items: Sequence[Item], artist: str, album: str, va_likely: bool
     ) -> Iterable[AlbumInfo]:
-        """ . "说明"Return :py:class:`AlbumInfo` candidates that match the given album.
+        """Return :py:class:`AlbumInfo` candidates that match the given album.
 
         Used in the autotag functionality to search for albums.
 
@@ -230,51 +230,51 @@ class MetadataSourcePlugin(BeetsPlugin, metaclass=abc.ABCMeta):
         :param artist: Album artist
         :param album: Album name
         :param va_likely: Whether the album is likely to be by various artists
-        """ . "说明"
+        """
         raise NotImplementedError
 
     @abc.abstractmethod
     def item_candidates(
         self, item: Item, artist: str, title: str
     ) -> Iterable[TrackInfo]:
-        """ . "说明"Return :py:class:`TrackInfo` candidates that match the given track.
+        """Return :py:class:`TrackInfo` candidates that match the given track.
 
         Used in the autotag functionality to search for tracks.
 
         :param item: Track item
         :param artist: Track artist
         :param title: Track title
-        """ . "说明"
+        """
         raise NotImplementedError
 
     def albums_for_ids(self, ids: Iterable[str]) -> Iterable[AlbumInfo | None]:
-        """ . "说明"Batch lookup of album metadata for a list of album IDs.
+        """Batch lookup of album metadata for a list of album IDs.
 
         Given a list of album identifiers, yields corresponding AlbumInfo objects.
         Missing albums result in None values in the output iterator.
         Plugins may implement this for optimized batched lookups instead of
         single calls to album_for_id.
-        """ . "说明"
+        """
 
         return (self.album_for_id(id_) for id_ in ids)
 
     def tracks_for_ids(self, ids: Iterable[str]) -> Iterable[TrackInfo | None]:
-        """ . "说明"Batch lookup of track metadata for a list of track IDs.
+        """Batch lookup of track metadata for a list of track IDs.
 
         Given a list of track identifiers, yields corresponding TrackInfo objects.
         Missing tracks result in None values in the output iterator.
         Plugins may implement this for optimized batched lookups instead of
         single calls to track_for_id.
-        """ . "说明"
+        """
 
         return (self.track_for_id(id_) for id_ in ids)
 
     def _extract_id(self, url: str) -> str | None:
-        """ . "说明"Extract an ID from a URL for this metadata source plugin.
+        """Extract an ID from a URL for this metadata source plugin.
 
         Uses the plugin's data source name to determine the ID format and
         extracts the ID from a given URL.
-        """ . "说明"
+        """
         return extract_release_id(self.data_source, url)
 
     @staticmethod
@@ -284,7 +284,7 @@ class MetadataSourcePlugin(BeetsPlugin, metaclass=abc.ABCMeta):
         name_key: str | int = "name",
         join_key: str | int | None = None,
     ) -> tuple[str, str | None]:
-        """ . "说明"Returns an artist string (all artists) and an artist_id (the main
+        """Returns an artist string (all artists) and an artist_id (the main
         artist) for a list of artist object dicts.
 
         For each artist, this function moves articles (such as 'a', 'an', and 'the')
@@ -304,7 +304,7 @@ class MetadataSourcePlugin(BeetsPlugin, metaclass=abc.ABCMeta):
             example "Feat.", "Vs.", "And" or similar. The default is None
             which keeps the default behaviour (comma-separated).
         :return: Normalized artist string.
-        """ . "说明"
+        """
         artist_id = None
         artist_string = ""
         artists = list(artists)  # In case a generator was passed.
@@ -327,17 +327,17 @@ class MetadataSourcePlugin(BeetsPlugin, metaclass=abc.ABCMeta):
 
 
 class IDResponse(TypedDict):
-    """ . "说明"Response from the API containing an ID.""" . "说明"
+    """Response from the API containing an ID."""
 
     id: str
 
 
 class SearchParams(NamedTuple):
-    """ . "说明"Bundle normalized search context passed to provider search hooks.
+    """Bundle normalized search context passed to provider search hooks.
 
     Shared search orchestration constructs this value so plugin hooks receive
     one object describing search intent, query text, and provider filters.
-    """ . "说明"
+    """
 
     query_type: QueryType
     query: str
@@ -351,14 +351,14 @@ R = TypeVar("R", bound=IDResponse)
 class SearchApiMetadataSourcePlugin(
     Generic[R], MetadataSourcePlugin, metaclass=abc.ABCMeta
 ):
-    """ . "说明"Helper class to implement a metadata source plugin with an API.
+    """Helper class to implement a metadata source plugin with an API.
 
     Plugins using this ABC must implement an API search method to
     retrieve album and track information by ID,
     i.e. `album_for_id` and `track_for_id`, and a search method to
     perform a search on the API. The search method should return a list
     of identifiers for the requested type (album or track).
-    """ . "说明"
+    """
 
     def __init__(self, *args, **kwargs) -> None:
         super().__init__(*args, **kwargs)
@@ -373,7 +373,7 @@ class SearchApiMetadataSourcePlugin(
         name: str,
         va_likely: bool,
     ) -> tuple[str, dict[str, str]]:
-        """ . "说明"Build query text and API filters for a provider search.
+        """Build query text and API filters for a provider search.
 
         Subclasses can override this hook when their API requires a query format
         or filter set that differs from the default text-based construction.
@@ -385,32 +385,36 @@ class SearchApiMetadataSourcePlugin(
         :param va_likely: Whether the search is likely to be for various artists
         :return: Tuple of (``query`` text, ``filters`` dict) to use for the
             search API call
-        """ . "说明"
+        """
 
     @abc.abstractmethod
     def get_search_response(self, params: SearchParams) -> Sequence[R]:
-        """ . "说明"Fetch raw search results for a provider request.
+        """Fetch raw search results for a provider request.
 
         Implementations should return records containing source IDs so shared
         candidate resolution can perform ID-based album and track lookups.
 
         :param params: :py:namedtuple:`~SearchParams` named tuple
         :return: Sequence of IDResponse dicts containing at least an "id" key for each
-        """ . "说明"
+        """
 
         raise NotImplementedError
 
     def _search_api(
         self, query_type: QueryType, query: str, filters: dict[str, str]
     ) -> Sequence[R]:
-        """ . "说明"Run shared provider search orchestration and return ID-bearing results.
+        """Run shared provider search orchestration and return ID-bearing results.
 
         This path applies optional query normalization and default limits, then
         delegates API access to provider hooks with consistent logging and
         failure handling.
-        """ . "说明"
+        """
         if self.config["search_query_ascii"].get():
             query = unidecode.unidecode(query)
+
+        if not query and not filters:
+            self._log.debug("Skipping search with empty query and filters")
+            return ()
 
         limit = self.config["search_limit"].get(int)
         params = SearchParams(query_type, query, filters, limit)
@@ -432,7 +436,7 @@ class SearchApiMetadataSourcePlugin(
     def _get_candidates(
         self, query_type: QueryType, *args, **kwargs
     ) -> Sequence[R]:
-        """ . "说明"Resolve query hooks and execute one provider search request.""" . "说明"
+        """Resolve query hooks and execute one provider search request."""
 
         return self._search_api(
             query_type,

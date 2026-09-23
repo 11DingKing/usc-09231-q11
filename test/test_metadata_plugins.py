@@ -9,7 +9,7 @@ from beets.test.helper import PluginMixin
 
 
 class ErrorMetadataMockPlugin(metadata_plugins.MetadataSourcePlugin):
-    """ . "说明"A metadata source plugin that raises errors in all its methods.""" . "说明"
+    """A metadata source plugin that raises errors in all its methods."""
 
     def candidates(self, *args, **kwargs):
         raise ValueError("Mocked error")
@@ -27,9 +27,9 @@ class ErrorMetadataMockPlugin(metadata_plugins.MetadataSourcePlugin):
 
 
 class TestMetadataPluginsException(PluginMixin):
-    """ . "说明"Check that errors during the metadata plugins do not crash beets.
+    """Check that errors during the metadata plugins do not crash beets.
     They should be logged as errors instead.
-    """ . "说明"
+    """
 
     @pytest.fixture(autouse=True)
     def setup(self):
@@ -95,7 +95,7 @@ class TestSearchApiMetadataSourcePlugin(PluginMixin):
             metadata_plugins.IDResponse
         ]
     ):
-        def get_search_query_with_filters(self, _):
+        def get_search_query_with_filters(self, *_):
             return "", {}
 
         def get_search_response(self, _):
@@ -126,6 +126,76 @@ class TestSearchApiMetadataSourcePlugin(PluginMixin):
 
         with pytest.raises(ValueError, match="Search failure"):
             search_plugin._search_api("track", "query", {})
+
+    def test_search_api_skips_request_without_query_and_filters(
+        self, config, search_plugin
+    ):
+        """Empty searches are rejected by APIs, so do not send them."""
+        config["raise_on_error"] = True
+
+        assert search_plugin._search_api("track", "", {}) == ()
+
+    @pytest.mark.parametrize(
+        "query_type,query,filters",
+        [
+            ("album", "", {"album": "Test Album"}),
+            ("track", "query", {}),
+        ],
+        ids=["empty-query", "empty-filters"],
+    )
+    def test_search_api_executes_with_query_or_filters(
+        self, config, search_plugin, query_type, query, filters
+    ):
+        """A single condition is enough to run the search and propagate
+        failures."""
+        config["raise_on_error"] = True
+
+        with pytest.raises(ValueError, match="Search failure"):
+            search_plugin._search_api(query_type, query, filters)
+
+    def test_empty_search_yields_no_candidates(self, config, search_plugin):
+        """Entry points skip the source search and keep candidates empty
+        when the normalized query and filters are both empty."""
+        config["raise_on_error"] = True
+
+        assert list(search_plugin.candidates([], "", "", False)) == []
+        assert list(search_plugin.item_candidates(None, "", "")) == []
+
+
+class TestMetadataSourceCache(PluginMixin):
+    """The metadata source lookups reuse their cached results instead of
+    rescanning the registered plugins on every search."""
+
+    @pytest.fixture(autouse=True)
+    def setup(self):
+        metadata_plugins.find_metadata_source_plugins.cache_clear()
+        metadata_plugins.get_metadata_source.cache_clear()
+        self.register_plugin(ErrorMetadataMockPlugin)
+        yield
+        self.unload_plugins()
+
+    def test_find_metadata_source_plugins_reuses_cache(self, monkeypatch):
+        scans = []
+        real_find_plugins = metadata_plugins.find_plugins
+        monkeypatch.setattr(
+            metadata_plugins,
+            "find_plugins",
+            lambda: scans.append(1) or real_find_plugins(),
+        )
+
+        first = metadata_plugins.find_metadata_source_plugins()
+        second = metadata_plugins.find_metadata_source_plugins()
+
+        assert first is second
+        assert [p.data_source for p in first] == ["ErrorMetadataMock"]
+        assert scans == [1]
+
+    def test_get_metadata_source_reuses_cache(self):
+        first = metadata_plugins.get_metadata_source("ErrorMetadataMock")
+        second = metadata_plugins.get_metadata_source("ErrorMetadataMock")
+
+        assert first is not None
+        assert first is second
 
 
 def test_albums_for_ids_calls_each_plugin_once(monkeypatch):
